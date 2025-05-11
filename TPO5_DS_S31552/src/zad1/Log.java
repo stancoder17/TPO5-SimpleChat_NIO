@@ -1,16 +1,9 @@
 package zad1;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class Log {
-    private final List<String> list = new ArrayList<>();
-
-    public void addToChatView(String msg) {
-        list.add(msg);
-    }
-
-    public String getLog() {
+    public static String toString(List<String> list) {
         StringBuilder sb = new StringBuilder();
         for (String s : list) {
             sb.append(s).append("\n");

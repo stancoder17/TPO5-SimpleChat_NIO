@@ -23,11 +23,12 @@ public class ChatClientTask extends FutureTask<String> {
 
     public static ChatClientTask create(ChatClient c, List<String> msgs, int wait) {
         return new ChatClientTask(() -> {
-            SocketChannel sc = c.getChannel();
+            /*SocketChannel sc = c.getChannel();
             c.login();
-            if (wait != 0) {
+
+            if (wait != 0)
                 Thread.sleep(wait);
-            }
+
             try (Selector selector = Selector.open()) {
                 sc.register(selector, SelectionKey.OP_READ);
                 sc.register(selector, SelectionKey.OP_WRITE);
@@ -48,10 +49,17 @@ public class ChatClientTask extends FutureTask<String> {
 
                         if (key.isWritable()) {
                             c.send(msg);
+                            if (wait != 0)
+                                Thread.sleep(wait);
                         }
                     }
                 }
-            }
+                c.logout();
+                if (wait != 0)
+                    Thread.sleep(wait);
+            }*/
+            c.login();
+
             return null;
         });
     }

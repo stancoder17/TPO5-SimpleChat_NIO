@@ -14,18 +14,15 @@ import java.nio.channels.*;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class ChatServer implements Runnable {
+public class ChatServer {
     private final String host;
     private final int port;
     private ServerSocketChannel ssc;
     private Selector selector;
-    private final Log log = new Log();
+    private final List<String> log = new LinkedList<>();
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
     private final Map<SocketChannel, String> clientLogins = new HashMap<>();
 
@@ -34,26 +31,22 @@ public class ChatServer implements Runnable {
         this.port = port;
     }
 
-    public void run() {
-        try {
-            ssc = ServerSocketChannel.open();
-            ssc.configureBlocking(false);
-            ssc.socket().bind(new InetSocketAddress(host, port));
-
-            selector = Selector.open();
-            ssc.register(selector, SelectionKey.OP_ACCEPT);
-
-            isRunning.set(true);
-        } catch (IOException e) {
-            throw new RuntimeException("An error occurred while starting the server", e);
-        }
-        serviceConnections();
-    }
-
     public void startServer() {
-        Thread t = new Thread(this);
-        t.start();
-        System.out.println("Server started");
+        new Thread(() -> {
+            try {
+                ssc = ServerSocketChannel.open();
+                ssc.configureBlocking(false);
+                ssc.socket().bind(new InetSocketAddress(host, port));
+
+                selector = Selector.open();
+                ssc.register(selector, SelectionKey.OP_ACCEPT);
+
+                isRunning.set(true);
+            } catch (IOException e) {
+                throw new RuntimeException("An error occurred while starting the server", e);
+            }
+            serviceConnections();
+        }).start();
     }
 
     public void stopServer() {
@@ -80,9 +73,9 @@ public class ChatServer implements Runnable {
                     break;
                 }
 
-                if (!isRunning.get()) break;
+                if (!isRunning.get()) break; // BREAK POINT
 
-                // An operation occured
+                // An operation occurred
                 Set<SelectionKey> keys = selector.selectedKeys();
                 Iterator<SelectionKey> iter = keys.iterator();
 
@@ -97,9 +90,9 @@ public class ChatServer implements Runnable {
                         continue;
                     }
 
-                    if (key.isReadable()) { // Client sends a request
+                    if (key.isReadable()) { // Client sends a message
                         SocketChannel clientChannel = (SocketChannel) key.channel();
-                        serviceRequest(clientChannel);
+                        serviceMessage(clientChannel);
                         continue;
                     }
                 }
@@ -110,31 +103,33 @@ public class ChatServer implements Runnable {
         }
     }
 
-    private void serviceRequest(SocketChannel sc) throws IOException {
+    private void serviceMessage(SocketChannel sc) throws IOException {
         if (!sc.isOpen() || sc.socket().isClosed()) return;
 
-        String request = BufferOperations.readMessage(sc);
-        String clientId = clientLogins.get(sc);
+        int header = Protocol.readHeader(sc);
 
-        // If client not logged in
-        synchronized (clientLogins) {
-            if (!clientLogins.containsKey(sc)) {
-                if (isValidLogin(request)) {
-                    clientId = request.split(" ")[1];
-                    clientLogins.put(sc, clientId); // login Adam -> put(sc, "Adam")
-
-                    log.addToChatView(clientId + " logged in at " + getCurrentTime());
-
-                    writeResponse(sc, "logged in");
-                } else {
-                    writeResponse(sc, "incorrect login, connect again");
-                    sc.close();
-                    sc.socket().close();
-                }
+        // Check if client is logged in
+        if (!clientLogins.containsKey(sc)) {
+            if (header != Protocol.LOGIN) {
+                ///  INFORM CLIENT THAT HE NEEDS TO LOG IN FIRST
+                sc.close();
+                sc.socket().close();
                 return;
             }
+            int msgLength = Protocol.readLength(sc);
+            String msg = Protocol.readMessage(msgLength, sc);
+
+            if (isValidLogin(msg)) {
+                clientLogins.put(sc, msg); // Adam -> put(sc, "Adam")
+                log.add(getCurrentTime() + " " + msg + " logged in");
+            } else {
+                /// INFORM CLIENT ABOUT INCORRECT LOGIN
+                sc.close();
+                sc.socket().close();
+            }
+            return;
         }
-        String[] tokens = request.split(" ");
+
 
     }
 
@@ -148,15 +143,11 @@ public class ChatServer implements Runnable {
     }
 
     private boolean isValidLogin(String msg) {
-        if (msg != null) {
-            String[] tokens = msg.split(" ");
-            return tokens.length == 2 && tokens[0].equals("login");
-        }
-        return false;
+        return msg != null && !msg.isEmpty();
     }
 
     public String getServerLog() {
-        return log.getLog();
+        return Log.toString(log);
     }
 
     public String getCurrentTime() {

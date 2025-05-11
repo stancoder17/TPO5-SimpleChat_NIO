@@ -12,13 +12,16 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
+import java.time.format.DateTimeFormatter;
+import java.util.LinkedList;
+import java.util.List;
 
 public class ChatClient {
     private final String host;
     private final int port;
     private SocketChannel sc;
     private final String id;
-    private final Log chatView = new Log();
+    private final List<String> chatView = new LinkedList<>();
 
     public ChatClient(String host, int port, String id) {
         this.host = host;
@@ -27,7 +30,7 @@ public class ChatClient {
     }
 
     public void login() {
-        chatView.addToChatView("=== " + id + " chat view");
+        addToChatView("=== " + id + " chat view");
 
         int attempts = 10;
         while (attempts-- > 0) {
@@ -36,12 +39,14 @@ public class ChatClient {
                 sc.configureBlocking(false);
                 sc.connect(new InetSocketAddress(host, port));
 
-                int count = 0; // to make sure that the while loop stops
-                while (!sc.finishConnect() && count < 50) { // 5 seconds in this case
+                // To make sure that the while loop stops
+                int count = 0;
+                while (!sc.finishConnect() && count < 50) {
                     Thread.sleep(100);
                     count++;
                 }
 
+                send(Protocol.LOGIN, id); // Send login id
                 return;
             } catch (IOException | InterruptedException e) {
                 if (attempts == 0) {
@@ -64,10 +69,13 @@ public class ChatClient {
         }
     }
 
-    public void send(String req) {
+    public void send(int header, String msg) {
         try {
-            // Writing
-            ByteBuffer buf = ByteBuffer.wrap((req + "\n").getBytes(StandardCharsets.UTF_8));
+            byte[] body = (msg + "\n").getBytes(StandardCharsets.UTF_8);
+            ByteBuffer buf = ByteBuffer.allocate(2 * Protocol.HEADER_SIZE + body.length);
+            buf.putInt(header); // LOGIN, LOGOUT, MESSAGE etc.
+            buf.putInt(body.length); // message size, so that the receiver knows how big buffer he has to allocate
+            buf.put(body);
 
             while (buf.hasRemaining()) {
                 sc.write(buf);
@@ -77,16 +85,16 @@ public class ChatClient {
         }
     }
 
-    public SocketChannel getChannel() {
-        return sc;
-    }
-
     public String getChatView() {
-        return chatView.getLog();
+        return Log.toString(chatView);
     }
 
     public void addToChatView(String msg) {
-        chatView.addToChatView(msg);
+        chatView.add(msg);
+    }
+
+    public SocketChannel getChannel() {
+        return sc;
     }
 
     public String getId() {
