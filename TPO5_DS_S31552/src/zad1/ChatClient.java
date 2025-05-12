@@ -62,6 +62,7 @@ public class ChatClient {
 
     public void logout() {
         try {
+            send(Protocol.LOGOUT, null);
             sc.close();
             sc.socket().close();
         } catch (IOException e) {
@@ -71,15 +72,7 @@ public class ChatClient {
 
     public void send(int header, String msg) {
         try {
-            byte[] body = (msg + "\n").getBytes(StandardCharsets.UTF_8);
-            ByteBuffer buf = ByteBuffer.allocate(2 * Protocol.HEADER_SIZE + body.length);
-            buf.putInt(header); // LOGIN, LOGOUT, MESSAGE etc.
-            buf.putInt(body.length); // message size, so that the receiver knows how big buffer he has to allocate
-            buf.put(body);
-
-            while (buf.hasRemaining()) {
-                sc.write(buf);
-            }
+            Protocol.writeMessage(sc, msg, header);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

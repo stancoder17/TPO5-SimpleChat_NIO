@@ -58,7 +58,6 @@ public class ChatClientTask extends FutureTask<String> {
                 if (wait != 0)
                     Thread.sleep(wait);
             }*/
-            c.login();
 
             return null;
         });

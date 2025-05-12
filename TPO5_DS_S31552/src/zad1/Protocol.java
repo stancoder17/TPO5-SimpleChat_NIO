@@ -11,7 +11,8 @@ public class Protocol {
     public static final int UNKNOWN = -1;
     public static final int LOGIN = 0;
     public static final int LOGOUT = 1;
-    public static final int MESSAGE = 2;
+    public static final int CLIENT_MESSAGE = 2;
+    public static final int SERVER_MESSAGE = 3;
 
     public static int readHeader(SocketChannel sc) throws IOException {
         ByteBuffer buf = ByteBuffer.allocate(HEADER_SIZE);
@@ -24,7 +25,7 @@ public class Protocol {
         switch (header) {
             case LOGIN:
             case LOGOUT:
-            case MESSAGE:
+            case CLIENT_MESSAGE:
                 return header;
             default:
                 return UNKNOWN;
@@ -40,7 +41,7 @@ public class Protocol {
         return buf.getInt();
     }
 
-    public static String readMessage(int length, SocketChannel sc) throws IOException {
+    public static String readMessage(SocketChannel sc, int length) throws IOException {
         ByteBuffer buf = ByteBuffer.allocate(length);
         StringBuilder sb = new StringBuilder();
         int bytesRead;
@@ -59,5 +60,19 @@ public class Protocol {
         }
 
         return sb.toString().trim();
+    }
+
+    public static void writeMessage(SocketChannel sc, String message, int header) throws IOException {
+        byte[] body = (message + "\n").getBytes(StandardCharsets.UTF_8);
+
+        ByteBuffer buf = ByteBuffer.allocate(2 * Protocol.HEADER_SIZE + body.length); // header + length + message
+        buf.putInt(header);      // header
+        buf.putInt(body.length);         // length
+        buf.put(body);                   // message body
+        buf.flip();
+
+        while (buf.hasRemaining()) {
+            sc.write(buf);
+        }
     }
 }

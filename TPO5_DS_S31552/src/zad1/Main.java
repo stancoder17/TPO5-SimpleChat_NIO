@@ -96,7 +96,7 @@ public class Main {
     int length = Protocol.readLength(serverChannel);  // Odczytaj długość wiadomości
     System.out.println("Length: " + length);
 
-    String message = Protocol.readMessage(length, serverChannel);  // Odczytaj wiadomość
+    String message = Protocol.readMessage(serverChannel, length);  // Odczytaj wiadomość
     System.out.println("Message: " + message);
 
     // Zamknięcie kanałów

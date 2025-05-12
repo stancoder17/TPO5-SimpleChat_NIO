@@ -9,9 +9,7 @@ package zad1;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.*;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -93,12 +91,10 @@ public class ChatServer {
                     if (key.isReadable()) { // Client sends a message
                         SocketChannel clientChannel = (SocketChannel) key.channel();
                         serviceMessage(clientChannel);
-                        continue;
                     }
                 }
             } catch (IOException e) {
                 e.printStackTrace();
-                continue;
             }
         }
     }
@@ -107,39 +103,62 @@ public class ChatServer {
         if (!sc.isOpen() || sc.socket().isClosed()) return;
 
         int header = Protocol.readHeader(sc);
+        String login = clientLogins.get(sc);
 
         // Check if client is logged in
-        if (!clientLogins.containsKey(sc)) {
+        if (login == null) {
             if (header != Protocol.LOGIN) {
-                ///  INFORM CLIENT THAT HE NEEDS TO LOG IN FIRST
+                send(sc, "You are not logged in");
                 sc.close();
                 sc.socket().close();
                 return;
             }
             int msgLength = Protocol.readLength(sc);
-            String msg = Protocol.readMessage(msgLength, sc);
+            login = Protocol.readMessage(sc, msgLength);
 
-            if (isValidLogin(msg)) {
-                clientLogins.put(sc, msg); // Adam -> put(sc, "Adam")
-                log.add(getCurrentTime() + " " + msg + " logged in");
+            if (isValidLogin(login)) {
+                clientLogins.put(sc, login); // Adam -> put(sc, "Adam")
+                log.add(getCurrentTime() + " " + login + " logged in");
+                broadcastMessage(login + " logged in");
             } else {
-                /// INFORM CLIENT ABOUT INCORRECT LOGIN
+                send(sc, "Invalid login, ending the connection");
                 sc.close();
                 sc.socket().close();
             }
-            return;
         }
+        else if (header == Protocol.CLIENT_MESSAGE) {
+            int msgLength = Protocol.readLength(sc);
+            String message = Protocol.readMessage(sc, msgLength);
 
+            broadcastMessage(login + ": " + message);
+        }
+        else if (header == Protocol.LOGOUT) {
+            clientLogins.remove(sc);
+            sc.close();
+            sc.socket().close();
+            broadcastMessage(login + " logged out");
+        }
+        else if (header == Protocol.LOGIN) { // Client is already logged in here, we check login in the first 'if' statement
+            send(sc, "Already logged in");
+        }
+        else {
+            send(sc, "Unknown message type");
+        }
+    }
+
+    private void broadcastMessage(String message) {
+        for (SocketChannel sc : clientLogins.keySet()) {
+            try {
+                send(sc, message);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
 
     }
 
-    private void writeResponse(SocketChannel sc, String message) throws IOException {
-        message += "\n";
-
-        ByteBuffer buf = ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8));
-
-        while (buf.hasRemaining())
-            sc.write(buf);
+    private void send(SocketChannel sc, String message) throws IOException {
+        Protocol.writeMessage(sc, message, Protocol.SERVER_MESSAGE);
     }
 
     private boolean isValidLogin(String msg) {
@@ -150,7 +169,7 @@ public class ChatServer {
         return Log.toString(log);
     }
 
-    public String getCurrentTime() {
+    public static String getCurrentTime() {
         return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss.nnn"));
     }
 }
