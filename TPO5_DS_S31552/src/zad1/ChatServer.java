@@ -30,6 +30,8 @@ public class ChatServer {
     }
 
     public void startServer() {
+        log.add("=== Server log ===");
+        System.out.println("Server started");
         new Thread(() -> {
             try {
                 ssc = ServerSocketChannel.open();
@@ -105,19 +107,40 @@ public class ChatServer {
         int header = Protocol.readHeader(sc);
         String login = clientLogins.get(sc);
 
-        // Check if client is logged in
         if (login == null) {
-            if (header != Protocol.LOGIN) {
-                send(sc, "You are not logged in");
-                sc.close();
-                sc.socket().close();
-                return;
+            handleLogin(sc, header);
+        } else {
+            switch (header) {
+                case Protocol.CLIENT_MESSAGE:
+                    handleClientMessage(sc, login);
+                    break;
+                case Protocol.LOGOUT:
+                    handleLogout(sc, login);
+                    break;
+                case Protocol.LOGIN:
+                    send(sc, "Already logged in");
+                    break;
+                default:
+                    handleUnknown(sc);
+                    break;
             }
-            int msgLength = Protocol.readLength(sc);
-            login = Protocol.readMessage(sc, msgLength);
+        }
+    }
 
+    private void handleLogin(SocketChannel sc, int header) throws IOException {
+        if (header != Protocol.LOGIN) {
+            send(sc, "You are not logged in");
+            sc.close();
+            sc.socket().close();
+            return;
+        }
+
+        int msgLength = Protocol.readLength(sc);
+        String login = Protocol.readMessage(sc, msgLength);
+
+        synchronized (clientLogins) {
             if (isValidLogin(login)) {
-                clientLogins.put(sc, login); // Adam -> put(sc, "Adam")
+                clientLogins.put(sc, login);
                 log.add(getCurrentTime() + " " + login + " logged in");
                 broadcastMessage(login + " logged in");
             } else {
@@ -126,25 +149,28 @@ public class ChatServer {
                 sc.socket().close();
             }
         }
-        else if (header == Protocol.CLIENT_MESSAGE) {
-            int msgLength = Protocol.readLength(sc);
-            String message = Protocol.readMessage(sc, msgLength);
-
-            broadcastMessage(login + ": " + message);
-        }
-        else if (header == Protocol.LOGOUT) {
-            clientLogins.remove(sc);
-            sc.close();
-            sc.socket().close();
-            broadcastMessage(login + " logged out");
-        }
-        else if (header == Protocol.LOGIN) { // Client is already logged in here, we check login in the first 'if' statement
-            send(sc, "Already logged in");
-        }
-        else {
-            send(sc, "Unknown message type");
-        }
     }
+
+    private void handleClientMessage(SocketChannel sc, String login) throws IOException {
+        int msgLength = Protocol.readLength(sc);
+        String message = Protocol.readMessage(sc, msgLength);
+        broadcastMessage(login + ": " + message);
+        log.add(getCurrentTime() + " " + login + ": " + message);
+    }
+
+    private void handleLogout(SocketChannel sc, String login) throws IOException {
+        synchronized (clientLogins) {
+            clientLogins.remove(sc);
+        }
+        sc.close();
+        sc.socket().close();
+        broadcastMessage(login + " logged out");
+    }
+
+    private void handleUnknown(SocketChannel sc) throws IOException {
+        send(sc, "Unknown message type");
+    }
+
 
     private void broadcastMessage(String message) {
         for (SocketChannel sc : clientLogins.keySet()) {
@@ -170,6 +196,6 @@ public class ChatServer {
     }
 
     public static String getCurrentTime() {
-        return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss.nnn"));
+        return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss.SSS"));
     }
 }

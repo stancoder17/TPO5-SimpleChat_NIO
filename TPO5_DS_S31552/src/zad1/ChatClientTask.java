@@ -6,64 +6,42 @@
 
 package zad1;
 
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.SocketChannel;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;
 
-public class ChatClientTask extends FutureTask<String> {
+public class ChatClientTask extends FutureTask<Void> {
 
-    private ChatClientTask(Callable<String> task) {
-        super(task);
+    private final ChatClient client;
+
+    private ChatClientTask(Callable<Void> callable, ChatClient client) {
+        super(callable);
+        this.client = client;
     }
 
     public static ChatClientTask create(ChatClient c, List<String> msgs, int wait) {
-        return new ChatClientTask(() -> {
-            /*SocketChannel sc = c.getChannel();
-            c.login();
-
-            if (wait != 0)
-                Thread.sleep(wait);
-
-            try (Selector selector = Selector.open()) {
-                sc.register(selector, SelectionKey.OP_READ);
-                sc.register(selector, SelectionKey.OP_WRITE);
-
-                Set<SelectionKey> keys = selector.selectedKeys();
-                Iterator<SelectionKey> iter = keys.iterator();
+        Callable<Void> task = () -> {
+            try {
+                c.login();
+                if (wait > 0) Thread.sleep(wait);
 
                 for (String msg : msgs) {
-                    while (iter.hasNext()) {
-                        SelectionKey key = iter.next();
-                        iter.remove();
-
-                        if (key.isReadable()) {
-                            SocketChannel channel = (SocketChannel) key.channel();
-                            c.addToChatView(BufferOperations.readMessage(channel));
-                            continue;
-                        }
-
-                        if (key.isWritable()) {
-                            c.send(msg);
-                            if (wait != 0)
-                                Thread.sleep(wait);
-                        }
-                    }
+                    c.send(Protocol.CLIENT_MESSAGE, msg);
+                    if (wait > 0) Thread.sleep(wait);
                 }
-                c.logout();
-                if (wait != 0)
-                    Thread.sleep(wait);
-            }*/
 
+                c.logout();
+                if (wait > 0) Thread.sleep(wait);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); // Restore the interrupt status
+            }
             return null;
-        });
+        };
+        return new ChatClientTask(task, c);
     }
 
     public ChatClient getClient() {
-        return null;
+        return client;
     }
 }
+

@@ -16,8 +16,21 @@ public class Protocol {
 
     public static int readHeader(SocketChannel sc) throws IOException {
         ByteBuffer buf = ByteBuffer.allocate(HEADER_SIZE);
-        while (buf.hasRemaining()) {
-            if (sc.read(buf) == -1) throw new EOFException();
+        int totalBytesRead = 0;
+        while (totalBytesRead < HEADER_SIZE) {
+            int bytesRead = sc.read(buf);
+            if (bytesRead == -1)
+                throw new EOFException();
+            else if (bytesRead == 0) {
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                continue;
+            }
+            totalBytesRead += bytesRead;
+
         }
         buf.flip();
 
@@ -34,32 +47,52 @@ public class Protocol {
 
     public static int readLength(SocketChannel sc) throws IOException {
         ByteBuffer buf = ByteBuffer.allocate(HEADER_SIZE);
-        while (buf.hasRemaining()) {
-            if (sc.read(buf) == -1) throw new EOFException();
+        int totalBytesRead = 0;
+
+        while (totalBytesRead < HEADER_SIZE) {
+            int bytesRead = sc.read(buf);
+            if (bytesRead == -1) {
+                throw new EOFException("Połączenie zostało zamknięte przed odczytaniem długości");
+            }
+            if (bytesRead == 0) {
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Przerwano odczyt długości");
+                }
+                continue;
+            }
+            totalBytesRead += bytesRead;
         }
+
         buf.flip();
         return buf.getInt();
     }
 
     public static String readMessage(SocketChannel sc, int length) throws IOException {
         ByteBuffer buf = ByteBuffer.allocate(length);
-        StringBuilder sb = new StringBuilder();
-        int bytesRead;
-
-        while (buf.hasRemaining()) {
-            bytesRead = sc.read(buf);
+        int totalBytesRead = 0;
+        
+        while (totalBytesRead < length) {
+            int bytesRead = sc.read(buf);
             if (bytesRead == -1) {
-                throw new EOFException("End of stream reached, no data read.");
+                throw new EOFException();
             }
-            if (bytesRead == 0) { // No data available yet
+            if (bytesRead == 0) {
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException();
+                }
                 continue;
             }
-            buf.flip();
-            sb.append(StandardCharsets.UTF_8.decode(buf));
-            buf.clear();
+            totalBytesRead += bytesRead;
         }
-
-        return sb.toString().trim();
+        
+        buf.flip();
+        return StandardCharsets.UTF_8.decode(buf).toString().trim();
     }
 
     public static void writeMessage(SocketChannel sc, String message, int header) throws IOException {
