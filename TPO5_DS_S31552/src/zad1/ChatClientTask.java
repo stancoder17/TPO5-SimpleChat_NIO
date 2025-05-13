@@ -33,7 +33,7 @@ public class ChatClientTask extends FutureTask<Void> {
                 c.logout();
                 if (wait > 0) Thread.sleep(wait);
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt(); // Restore the interrupt status
+                throw new RuntimeException(e);
             }
             return null;
         };
