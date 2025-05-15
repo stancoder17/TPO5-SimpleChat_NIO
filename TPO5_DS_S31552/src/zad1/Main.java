@@ -6,21 +6,15 @@
 
 package zad1;
 
-
 import java.io.*;
-import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
 
 public class Main {
 
   public static void main(String[] args) throws Exception {
+
     String testFileName = System.getProperty("user.home") + "/ChatTest.txt";
     List<String> test = Files.readAllLines(Paths.get(testFileName));
     String host = test.remove(0);

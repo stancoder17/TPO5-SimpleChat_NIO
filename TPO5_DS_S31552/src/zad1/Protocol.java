@@ -17,6 +17,7 @@ public class Protocol {
     public static int readHeader(SocketChannel sc) throws IOException {
         ByteBuffer buf = ByteBuffer.allocate(HEADER_SIZE);
         int totalBytesRead = 0;
+
         while (totalBytesRead < HEADER_SIZE) {
             int bytesRead = sc.read(buf);
             if (bytesRead == -1)
@@ -37,9 +38,10 @@ public class Protocol {
         int header = buf.getInt();
         switch (header) {
             case LOGIN:
-            case LOGOUT:
-            case CLIENT_MESSAGE:
-                return header;
+                case LOGOUT:
+                    case CLIENT_MESSAGE:
+                        case SERVER_MESSAGE:
+                            return header;
             default:
                 return UNKNOWN;
         }
@@ -52,14 +54,14 @@ public class Protocol {
         while (totalBytesRead < HEADER_SIZE) {
             int bytesRead = sc.read(buf);
             if (bytesRead == -1) {
-                throw new EOFException("Połączenie zostało zamknięte przed odczytaniem długości");
+                throw new EOFException();
             }
             if (bytesRead == 0) {
                 try {
                     Thread.sleep(10);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    throw new IOException("Przerwano odczyt długości");
+                    throw new IOException();
                 }
                 continue;
             }
@@ -73,7 +75,7 @@ public class Protocol {
     public static String readMessage(SocketChannel sc, int length) throws IOException {
         ByteBuffer buf = ByteBuffer.allocate(length);
         int totalBytesRead = 0;
-        
+
         while (totalBytesRead < length) {
             int bytesRead = sc.read(buf);
             if (bytesRead == -1) {
@@ -90,7 +92,7 @@ public class Protocol {
             }
             totalBytesRead += bytesRead;
         }
-        
+
         buf.flip();
         return StandardCharsets.UTF_8.decode(buf).toString().trim();
     }
