@@ -11,7 +11,6 @@ import java.nio.channels.*;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ChatServer {
     private final String host;
@@ -53,6 +52,7 @@ public class ChatServer {
     public void stopServer() {
         isRunning = false;
         selector.wakeup();
+        System.out.println("Server stopped");
     }
 
     /**
@@ -94,7 +94,6 @@ public class ChatServer {
                 ssc.close();
             } catch (IOException e) {
                 e.printStackTrace();
-                System.out.println("Server stopped");
             }
         }
     }

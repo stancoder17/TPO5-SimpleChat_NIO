@@ -117,7 +117,7 @@ public class ChatClient {
                                 String message = Protocol.readMessage(
                                         sc, Protocol.readLength(sc)
                                 );
-                                addToChatView(id + ": " + message);
+                                addToChatView(message);
                             } catch (ClosedChannelException e) {
                                 break;
                             }
