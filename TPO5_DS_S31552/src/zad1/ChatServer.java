@@ -34,6 +34,7 @@ public class ChatServer {
 
     public void startServer() {
         System.out.println("Server started");
+        System.out.println();
         new Thread(() -> {
             try {
                 ssc = ServerSocketChannel.open();
@@ -162,12 +163,13 @@ public class ChatServer {
     }
 
     private void handleLogout(SocketChannel sc, String login) throws IOException {
+        broadcastMessage(login + " logged out");
+        log.add(getCurrentTime() + " " + login + " logged out");
         synchronized (clientLogins) {
             clientLogins.remove(sc);
         }
+        send(sc, null, Protocol.LOGOUT_CONFIRMED);
         sc.close();
-        sc.socket().close();
-        broadcastMessage(login + " logged out");
     }
 
     private void handleClientMessage(SocketChannel sc, String login) throws IOException {
@@ -205,6 +207,10 @@ public class ChatServer {
 
     private void send(SocketChannel sc, String message) throws IOException {
         Protocol.writeMessage(sc, message, Protocol.SERVER_MESSAGE);
+    }
+
+    private void send(SocketChannel sc, String message, int header) throws IOException {
+        Protocol.writeMessage(sc, message, header);
     }
 
     private boolean isValidLogin(String msg) {

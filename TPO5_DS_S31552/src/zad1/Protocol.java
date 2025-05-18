@@ -11,8 +11,9 @@ public class Protocol {
     public static final int UNKNOWN = -1;
     public static final int LOGIN = 0;
     public static final int LOGOUT = 1;
-    public static final int CLIENT_MESSAGE = 2;
-    public static final int SERVER_MESSAGE = 3;
+    public static final int LOGOUT_CONFIRMED = 2;
+    public static final int CLIENT_MESSAGE = 3;
+    public static final int SERVER_MESSAGE = 4;
 
     public static int readHeader(SocketChannel sc) throws IOException {
         ByteBuffer buf = ByteBuffer.allocate(HEADER_SIZE);
@@ -41,7 +42,8 @@ public class Protocol {
                 case LOGOUT:
                     case CLIENT_MESSAGE:
                         case SERVER_MESSAGE:
-                            return header;
+                            case LOGOUT_CONFIRMED:
+                                return header;
             default:
                 return UNKNOWN;
         }

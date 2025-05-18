@@ -69,7 +69,7 @@ public class ChatClient {
     }
 
     /**
-     * Client only sends a request, but the Server closes Client's SocketChannel.
+     * Client sends a request, Server returns a confirmation message, and the logout is done in the startListening() method
      */
     public void logout() {
         send(Protocol.LOGOUT, null);
@@ -83,11 +83,6 @@ public class ChatClient {
         }
     }
 
-    /**
-     * Closing the client's SocketChannel unblocks selector.select() and
-     * key.isReadable() returns true, but read() returns -1 (EOF).
-     * Catch EOFException is to stop the listening thread after client's logout.
-     */
     public void startListening() {
         new Thread(() -> {
             try {
@@ -106,12 +101,17 @@ public class ChatClient {
                             try {
                                 try {
                                     int header = Protocol.readHeader(sc);
-                                    if (header != Protocol.SERVER_MESSAGE) {
-                                        System.out.println(header);
+                                    if (header == Protocol.LOGOUT_CONFIRMED) {
+                                        selector.close();
+                                        sc.close();
+                                        return;
+                                    }
+                                    else if (header != Protocol.SERVER_MESSAGE) {
                                         continue;
                                     }
-                                } catch (EOFException e) { // Read the documentation above
+                                } catch (EOFException e) {
                                     selector.close();
+                                    sc.close();
                                     return;
                                 }
                                 String message = Protocol.readMessage(
@@ -125,7 +125,7 @@ public class ChatClient {
                     }
                 }
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                addToChatView("***" + e.toString());
             }
         }).start();
     }
